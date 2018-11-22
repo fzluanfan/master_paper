@@ -4,7 +4,6 @@ import csv
 import os
 import numpy as np
 
-# YA
 # 10.1.10.202GX430L 211
 # 10.1.10.203Q3020  55
 
