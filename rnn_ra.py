@@ -3,21 +3,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy import genfromtxt
 from sklearn.preprocessing import MinMaxScaler
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 # hyperparameters
 n_steps = 100
 n_inputs = 6
 n_outputs = 1
-n_hidden_units = 30
+n_hidden_units = 10
 
-lr = 0.001
-epochs = 20
+lr = 0.0001
+epochs = 100
 batch_size = 10
 batch_start = 0
 
 my_data = genfromtxt('dataset2.csv', delimiter=',')
-label = genfromtxt('label.csv', delimiter=',', skip_header=1)
-
+label = genfromtxt('label1.csv', delimiter=',')
 
 def split_scale(data):
     datalen1 = data[:, :1]
@@ -114,8 +115,9 @@ with tf.Session() as sess:
     i = 0
     while i < epochs+1:
         step = 0
-        while step < len(label[:100, :1])/batch_size+1:
-            batch_xs, batch_ys = my_data[batch_start:batch_start+batch_size*n_steps, :], label[batch_start:batch_start+batch_size, :]
+        batch_start = 0
+        while step < len(label[:120, :1])/batch_size:
+            batch_xs, batch_ys = my_data[batch_start*n_steps:(batch_start+batch_size)*n_steps, :], label[batch_start:batch_start+batch_size, :]
             batch_xs = batch_xs.reshape([batch_size, n_steps, n_inputs])
             sess.run([train_op], feed_dict={
                 x: batch_xs,
@@ -127,13 +129,14 @@ with tf.Session() as sess:
                     y: batch_ys,
                 }))
             step += 1
+            batch_start += batch_size
         i += 1
-    prediction = sess.run(pred, feed_dict={x: my_data[-10 * n_steps:, :].reshape([batch_size, n_steps, n_inputs])})
+    prediction = sess.run(pred, feed_dict={x: my_data[-batch_size * n_steps:, :].reshape([batch_size, n_steps, n_inputs])})
     prediction = scalery.inverse_transform(prediction)
-    label[-10:, :] = scalery.inverse_transform(label[-10:, :])
+    label[-batch_size:, :] = scalery.inverse_transform(label[-batch_size:, :])
     print(prediction)
-    print(label[-10:, :])
+    print(label[-batch_size:, :])
     plt.plot(prediction, 'r', label='fitted line', lw=3)
-    plt.plot(label[-10:, :], 'b', label='ori line', lw=3)
+    plt.plot(label[-batch_size:, :], 'b', label='ori line', lw=3)
     plt.show()
     plt.clf()
