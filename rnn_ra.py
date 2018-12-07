@@ -1,3 +1,4 @@
+import time
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,11 +9,12 @@ from sklearn.preprocessing import MinMaxScaler
 n_steps = 100
 n_inputs = 3
 n_outputs = 1
+n_hidden_units = 128
 num_units = [128, 64]
 
 lr = 0.00001
 epochs = 100
-batch_size = 8
+batch_size = 5
 batch_start = 0
 
 my_data = genfromtxt('dataset2.csv', delimiter=',')
@@ -66,11 +68,11 @@ def Rnn(X, Weights, Biases):
     X_in = tf.matmul(X, Weights['in']) + Biases['in']
     X_in = tf.reshape(X_in, [-1, n_steps, n_hidden_units])
 
-    # cell
-    cells = [tf.contrib.rnn.BasicLSTMCell(num_units=n) for n in num_units]
-    stacked_rnn_cell = tf.contrib.rnn.MultiRNNCell(cells)
-    init_state = cells.zero_state(batch_size, dtype=tf.float32)
-    outputs, final_state = tf.nn.dynamic_rnn(cells, X_in, initial_state=init_state, time_major=False)
+    # cells = [tf.contrib.rnn.BasicLSTMCell(num_units=n) for n in num_units]
+    # stacked_rnn_cell = tf.contrib.rnn.MultiRNNCell(cells)
+    cell = tf.contrib.rnn.BasicLSTMCell(n_hidden_units)
+    init_state = cell.zero_state(batch_size, dtype=tf.float32)
+    outputs, final_state = tf.nn.dynamic_rnn(cell, X_in, initial_state=init_state, time_major=False)
 
     # output
     outputs = tf.unstack(tf.transpose(outputs, [1, 0, 2]))
@@ -104,6 +106,9 @@ pred = Rnn(x, weights, biases)
 cost = tf.reduce_mean(tf.abs(tf.subtract(pred, y)))
 train_op = tf.train.AdamOptimizer(lr).minimize(cost)
 
+saver = tf.train.Saver()
+now = time.strftime("%Y%m%d%H%M", time.localtime())
+
 with tf.Session() as sess:
     init = tf.global_variables_initializer()
     sess.run(init)
@@ -118,18 +123,31 @@ with tf.Session() as sess:
                 y: batch_ys,
             })
             if step == 0:
-                print(i, step, sess.run(cost, feed_dict={
+                print(i, sess.run(cost, feed_dict={
                     x: batch_xs,
                     y: batch_ys,
                 }))
             step += 1
+        if i % 5 == 0:
+            prediction = sess.run(pred, feed_dict={
+                x: my_data[-batch_size * n_steps:, :].reshape([batch_size, n_steps, n_inputs])})
+            prediction = scalery.inverse_transform(prediction)
+            label_epoch = scalery.inverse_transform(label[-batch_size:, :])
+            # print(prediction)
+            # print(label_epoch)
+            plt.plot(prediction, 'r', label='fitted line', lw=3)
+            plt.plot(label_epoch, 'b', label='ori line', lw=3)
+            plt.savefig('picture/' + str(i))
+            # plt.show()
+            plt.clf()
         i += 1
+    save_path = saver.save(sess, "model/model_"+now+".ckpt")
     prediction = sess.run(pred, feed_dict={x: my_data[-batch_size * n_steps:, :].reshape([batch_size, n_steps, n_inputs])})
     prediction = scalery.inverse_transform(prediction)
-    label[-batch_size:, :] = scalery.inverse_transform(label[-batch_size:, :])
+    label_pred = scalery.inverse_transform(label[-batch_size:, :])
     print(prediction)
-    print(label[-batch_size:, :])
+    print(label_pred)
     plt.plot(prediction, 'r', label='fitted line', lw=3)
-    plt.plot(label[-batch_size:, :], 'b', label='ori line', lw=3)
+    plt.plot(label_pred, 'b', label='ori line', lw=3)
     plt.show()
     plt.clf()
